@@ -1,9 +1,7 @@
 // Command xftp gives SharePoint document libraries an FTP-client feel over
-// Microsoft Graph: connect to a site, then list/get/put/mkdir/rm/mv files.
-//
-// This is the scaffold: it authenticates, binds a library, and lists the root
-// to prove the auth + read path. The interactive FTP-style REPL and the
-// mutating verbs (get/put/mkdir/rm/mv) come next — see internal/drive.
+// Microsoft Graph: connect to a site, then an interactive prompt offers
+// ls/cd/get/put/mkdir/rm/mv. Authentication is device-code; refresh tokens are
+// cached under ~/.config/xftp.
 package main
 
 import (
@@ -12,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"text/tabwriter"
 
 	"github.com/excelano/xftp/internal/drive"
 	"github.com/excelano/xftp/internal/spauth"
@@ -78,22 +75,7 @@ func run() int {
 	}
 
 	fmt.Fprintf(os.Stderr, "Authenticated as: %s\n", result.Account.PreferredUsername)
-	fmt.Fprintf(os.Stderr, "Connected to: %s / %s\n\n", d.Hostname, d.Name)
+	fmt.Fprintf(os.Stderr, "Connected to: %s / %s. Type \"help\" for commands, \"quit\" to exit.\n", d.Hostname, d.Name)
 
-	items, err := d.List(ctx, graph, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "List failed: %v\n", err)
-		return 1
-	}
-
-	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	for _, it := range items {
-		kind := "-"
-		if it.IsFolder {
-			kind = "d"
-		}
-		fmt.Fprintf(tw, "%s\t%10d\t%s\t%s\n", kind, it.Size, it.LastModified.Format("2006-01-02 15:04"), it.Name)
-	}
-	tw.Flush()
-	return 0
+	return runREPL(ctx, graph, d)
 }

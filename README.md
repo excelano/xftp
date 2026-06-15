@@ -77,7 +77,7 @@ Deleting a single file goes straight through, since SharePoint routes it to the 
 
 ## Authentication and tenants
 
-xftp authenticates through a multi-tenant Azure app registration ("Excelano SharePoint tools"), shared with its sibling tool [xql](https://github.com/excelano/xql), so consenting once covers both. Pointing xftp at another organization's site uses that same registration — nobody sets up their own. The first connection to a new tenant raises a one-time consent prompt; depending on that tenant's policy, either the user or an administrator clears it, after which everyone in the tenant is covered. The single scope requested is `Sites.ReadWrite.All`.
+xftp authenticates through a multi-tenant Azure app registration ("Excelano SharePoint tools"), shared with its sibling tool [xql](https://github.com/excelano/xql), so consenting once covers both. Pointing xftp at another organization's site uses that same registration — nobody sets up their own. The first connection to a new tenant raises a one-time consent prompt; depending on that tenant's policy, either the user or an administrator clears it, after which everyone in the tenant is covered. The single scope requested is `Sites.ReadWrite.All`. If your organization restricts user consent, [ADMINS.md](ADMINS.md) has everything your IT department needs to review and approve the application.
 
 To use your own app registration instead, change `defaultClientID` in `internal/spauth/auth.go` and rebuild.
 

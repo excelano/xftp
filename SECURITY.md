@@ -16,6 +16,8 @@ xftp is a CLI that runs locally on your machine. It calls Microsoft Graph over H
 
 Downloads stream to a temporary file in the destination directory and are renamed into place only on success; uploads larger than 250 MB go through a Graph upload session, which is cancelled on the server if the transfer is interrupted.
 
+IT administrators evaluating xftp for a Microsoft 365 tenant will find the application's registration details, the delegated-permission risk profile, and the consent and revocation steps in [ADMINS.md](ADMINS.md).
+
 ## What xftp stores
 
 xftp stores REPL command history at `~/.config/xftp/history` and caches a refresh token at `~/.config/xftp/sp-token.json`, both with file mode 0600 (directory mode 0700). The cached token lets subsequent runs reauthenticate without another device-code prompt. Delete `sp-token.json` to force re-authentication; revoke the granted permission at https://myaccount.microsoft.com/applications to invalidate the token server-side. There is no telemetry, no analytics, and no remote logging.

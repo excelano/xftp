@@ -1,7 +1,8 @@
 // Package drive is xftp's SharePoint document-library client: it resolves a
 // site URL to a Graph drive, then exposes FTP-shaped operations over that drive
-// — Stat, List, Download, Upload, Mkdir, Remove, Move. Uploads are simple-PUT
-// only (<=250MB); larger files will need an upload session.
+// — Stat, List, Download, Upload, Mkdir, Remove, Move. Uploads stream from a
+// reader: files up to 250MB go in a single PUT, larger ones through a chunked,
+// resumable upload session.
 package drive
 
 import (
@@ -227,10 +228,15 @@ func (d *Drive) List(ctx context.Context, g *spauth.GraphClient, path string) ([
 	return items, nil
 }
 
-// simpleUploadMax is Graph's ceiling for a single PUT to /content. Above this
-// an upload session is required; xftp rejects oversized files for now rather
-// than silently truncating.
+// simpleUploadMax is Graph's ceiling for a single PUT to /content. Files at or
+// below this go in one request; larger files use a chunked upload session.
 const simpleUploadMax = 250 * 1024 * 1024
+
+// uploadChunkSize is the byte count per PUT within an upload session. Graph
+// requires every chunk except the last to be a multiple of 320 KiB; 10 MiB
+// satisfies that and keeps the round-trip count low without holding much in
+// memory.
+const uploadChunkSize = 10 * 1024 * 1024
 
 // Stat returns metadata for a single item at the library-relative path ("" or
 // "/" for the drive root). Used to validate "cd" targets and to size downloads.
@@ -262,18 +268,77 @@ func (d *Drive) Download(ctx context.Context, g *spauth.GraphClient, path string
 	return nil
 }
 
-// Upload writes content to the library-relative remote path. (FTP "put".)
-// Simple upload only (<=250MB); larger files need an upload session, which is
-// not yet implemented.
-func (d *Drive) Upload(ctx context.Context, g *spauth.GraphClient, path, contentType string, data []byte) error {
-	if len(data) > simpleUploadMax {
-		return fmt.Errorf("file is %d bytes; simple upload caps at %d (upload sessions not yet implemented)", len(data), simpleUploadMax)
-	}
+// Upload streams size bytes from r to the library-relative remote path. (FTP
+// "put".) Files at or below SimpleUploadMax go in a single PUT; larger files use
+// a chunked, resumable upload session. An existing file at the path is replaced.
+func (d *Drive) Upload(ctx context.Context, g *spauth.GraphClient, path, contentType string, r io.Reader, size int64) error {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	_, err := g.PutRaw(ctx, fmt.Sprintf("/drives/%s%s/content", d.DriveID, itemRef(path)), contentType, data)
-	return err
+	if size <= simpleUploadMax {
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return fmt.Errorf("reading upload data: %w", err)
+		}
+		_, err = g.PutRaw(ctx, fmt.Sprintf("/drives/%s%s/content", d.DriveID, itemRef(path)), contentType, data)
+		return err
+	}
+	return d.uploadSession(ctx, g, path, r, size)
+}
+
+// uploadSession uploads a large file in chunks. It opens a Graph upload session,
+// then streams uploadChunkSize-byte ranges from r until size bytes are sent. The
+// session is cancelled on failure so a partial upload leaves nothing behind.
+func (d *Drive) uploadSession(ctx context.Context, g *spauth.GraphClient, path string, r io.Reader, size int64) error {
+	body, err := g.Post(ctx, fmt.Sprintf("/drives/%s%s/createUploadSession", d.DriveID, itemRef(path)),
+		map[string]interface{}{
+			"item": map[string]interface{}{
+				"@microsoft.graph.conflictBehavior": "replace",
+			},
+		})
+	if err != nil {
+		return fmt.Errorf("creating upload session: %w", err)
+	}
+	var sess struct {
+		UploadURL string `json:"uploadUrl"`
+	}
+	if err := json.Unmarshal(body, &sess); err != nil {
+		return fmt.Errorf("decoding upload session: %w", err)
+	}
+	if sess.UploadURL == "" {
+		return fmt.Errorf("upload session response missing uploadUrl")
+	}
+
+	// Cancel the session on any failure using a fresh context, so cleanup still
+	// runs even when the upload was aborted by ctx cancellation (Ctrl-C).
+	cancelSession := func() {
+		cctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		g.CancelUploadSession(cctx, sess.UploadURL)
+	}
+
+	buf := make([]byte, uploadChunkSize)
+	var sent int64
+	for sent < size {
+		n, readErr := io.ReadFull(r, buf)
+		if readErr != nil && readErr != io.ErrUnexpectedEOF && readErr != io.EOF {
+			cancelSession()
+			return fmt.Errorf("reading upload data: %w", readErr)
+		}
+		if n == 0 {
+			break
+		}
+		if _, _, err := g.UploadChunk(ctx, sess.UploadURL, buf[:n], sent, size); err != nil {
+			cancelSession()
+			return err
+		}
+		sent += int64(n)
+	}
+	if sent != size {
+		cancelSession()
+		return fmt.Errorf("upload incomplete: sent %d of %d bytes", sent, size)
+	}
+	return nil
 }
 
 // Mkdir creates a folder at the library-relative path. (FTP "mkdir".) Fails if

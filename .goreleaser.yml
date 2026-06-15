@@ -1,0 +1,85 @@
+# goreleaser configuration. Triggered by .github/workflows/release.yml on
+# every "v*" tag push. To test locally (optional):
+#   goreleaser release --snapshot --clean
+# Snapshots produce binaries in ./dist/ without touching GitHub.
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: xftp
+    main: ./cmd/xftp
+    binary: xftp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+archives:
+  - id: xftp
+    name_template: "xftp_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+    files:
+      - LICENSE
+      - README.md
+
+nfpms:
+  - id: xftp
+    package_name: xftp
+    file_name_template: "{{ .ConventionalFileName }}"
+    maintainer: David M. Anderson <david.anderson@excelano.com>
+    description: |
+      xftp — an FTP-client feel for SharePoint document libraries.
+      Connect to a site and move files with ls/cd/get/put/mkdir/rm/mv
+      over Microsoft Graph. Device-code auth; large files stream through
+      resumable upload sessions.
+    homepage: https://github.com/excelano/xftp
+    license: MIT
+    formats:
+      - deb
+    section: utils
+    priority: optional
+    bindir: /usr/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/xftp/copyright
+      - src: ./README.md
+        dst: /usr/share/doc/xftp/README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  draft: false
+  prerelease: auto
+  # Ship install.sh alongside the platform tarballs so users can pin to a
+  # specific release URL instead of relying on the rolling main branch.
+  extra_files:
+    - glob: install.sh
+    - glob: uninstall.sh
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"

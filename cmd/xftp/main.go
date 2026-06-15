@@ -26,6 +26,9 @@ func configDir() string {
 	return filepath.Join(home, ".config", "xftp")
 }
 
+// version is stamped at build time via -ldflags by goreleaser.
+var version = "(devel)"
+
 func main() {
 	os.Exit(run())
 }
@@ -34,6 +37,8 @@ func run() int {
 	fs := flag.NewFlagSet("xftp", flag.ContinueOnError)
 	site := fs.String("site", "", "SharePoint site URL, e.g. https://contoso.sharepoint.com/sites/Marketing (required)")
 	library := fs.String("library", "", "Document library display name (default: the site's default library)")
+	showVersion := fs.Bool("version", false, "print version and exit")
+	fs.BoolVar(showVersion, "V", false, "print version and exit (shorthand)")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: xftp --site <site-url> [--library <name>]")
 		fmt.Fprintln(os.Stderr)
@@ -43,7 +48,14 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "cached at "+filepath.Join(configDir(), "sp-token.json")+".")
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
 		return 2
+	}
+	if *showVersion {
+		fmt.Println(version)
+		return 0
 	}
 	if *site == "" {
 		fmt.Fprintln(os.Stderr, "Error: --site is required")

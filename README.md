@@ -4,6 +4,37 @@ xftp gives a SharePoint document library the feel of an FTP session. You connect
 
 It is a single static Go binary with no daemon and no mounted filesystem. Authentication is device-code OAuth: the first time you connect, xftp prints a short code and a URL, you sign in once in a browser, and the refresh token is cached under `~/.config/xftp` so later runs are silent.
 
+## Install
+
+Prebuilt binary (Linux and macOS, x86_64 and arm64):
+
+```
+curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sh
+```
+
+If the installer needs to write to a root-owned directory like `/usr/local/bin`, wrap `sh`, not `curl`:
+
+```
+curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sudo sh
+```
+
+Pin a version with `XFTP_VERSION=v1.0.0`, or install elsewhere with `XFTP_INSTALL_DIR=$HOME/bin`.
+
+On Debian or Ubuntu, install from the [Excelano apt repository](https://excelano.com/apt/) instead, so `apt upgrade` keeps it current:
+
+```sh
+curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
+sudo apt install xftp
+```
+
+From source (Go 1.24 or later):
+
+```
+go install github.com/excelano/xftp/cmd/xftp@latest
+```
+
+To uninstall, run `curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh | sh`.
+
 ## Connecting
 
 Point xftp at a SharePoint site URL. With no library named, it binds the site's default document library; pass `--library` to pick another by its display name.
@@ -32,7 +63,7 @@ Paths may be relative to the current folder or absolute with a leading `/`, and 
 | `cd [path]` | Change remote folder. With no argument, prints the current folder. |
 | `pwd` | Print the current remote folder. |
 | `get <remote> [local]` | Download a file. Defaults the local name to the remote's. |
-| `put <local> [remote]` | Upload a file (up to 250 MB). Defaults the remote name to the local's. |
+| `put <local> [remote]` | Upload a file. Files over 250 MB upload in chunks, with progress. Defaults the remote name to the local's. |
 | `mkdir <path>` | Create a remote folder. |
 | `rm <path>` | Delete a file. Folders are recursive, so they prompt for confirmation first. |
 | `mv <src> <dst>` | Move or rename a remote item. |
@@ -56,9 +87,11 @@ To use your own app registration instead, change `defaultClientID` in `internal/
 go build -o xftp ./cmd/xftp
 ```
 
-## Limitations
+## Large files
 
-Uploads use a single request, which Graph caps at 250 MB; larger files are rejected rather than truncated. Resumable upload sessions for big files are the planned next step.
+Files up to 250 MB upload in a single request. Above that, xftp opens a Graph upload session and streams the file in 10 MiB chunks. Downloads stream straight to disk as well, into a temporary file that's renamed into place only once the transfer completes, so an interrupted download never leaves a corrupt file at the real name. Either direction reads or writes directly to disk rather than buffering the whole file in memory, so transfer size is bounded by the library's quota and your local disk, not by RAM.
+
+Transfers over 50 MB print a progress line. Ctrl-C interrupts a transfer in progress and cleans up after itself: a partial download is discarded, and an aborted upload session is cancelled on the server.
 
 ---
 

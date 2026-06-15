@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"sort"
@@ -172,13 +173,53 @@ func (s *session) get(rest []string) {
 		localPath = filepath.Join(s.localDir, localPath)
 	}
 
-	f, err := os.Create(localPath)
+	ctx, stop := signal.NotifyContext(s.ctx, os.Interrupt)
+	defer stop()
+
+	item, err := s.d.Stat(ctx, s.g, remote)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "get: %v\n", err)
 		return
 	}
-	defer f.Close()
-	if err := s.d.Download(s.ctx, s.g, remote, f); err != nil {
+	if item.IsFolder {
+		fmt.Fprintf(os.Stderr, "get: /%s is a folder\n", remote)
+		return
+	}
+
+	// Download into a temp file in the destination directory, then rename on
+	// success. An interrupted or failed download never leaves a corrupt file at
+	// the real name.
+	tmp, err := os.CreateTemp(filepath.Dir(localPath), "."+filepath.Base(localPath)+".part-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "get: %v\n", err)
+		return
+	}
+	tmpName := tmp.Name()
+
+	var w io.Writer = tmp
+	showProgress := item.Size > progressThreshold
+	if showProgress {
+		w = &progressWriter{w: tmp, total: item.Size, label: path.Base(remote)}
+	}
+
+	dlErr := s.d.Download(ctx, s.g, remote, w)
+	if showProgress {
+		fmt.Fprintln(os.Stderr)
+	}
+	if cerr := tmp.Close(); cerr != nil && dlErr == nil {
+		dlErr = cerr
+	}
+	if dlErr != nil {
+		os.Remove(tmpName)
+		if ctx.Err() != nil {
+			fmt.Fprintln(os.Stderr, "get: interrupted")
+		} else {
+			fmt.Fprintf(os.Stderr, "get: %v\n", dlErr)
+		}
+		return
+	}
+	if err := os.Rename(tmpName, localPath); err != nil {
+		os.Remove(tmpName)
 		fmt.Fprintf(os.Stderr, "get: %v\n", err)
 		return
 	}
@@ -194,9 +235,19 @@ func (s *session) put(rest []string) {
 	if !filepath.IsAbs(localPath) {
 		localPath = filepath.Join(s.localDir, localPath)
 	}
-	data, err := os.ReadFile(localPath)
+	f, err := os.Open(localPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "put: %v\n", err)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "put: %v\n", err)
+		return
+	}
+	if info.IsDir() {
+		fmt.Fprintf(os.Stderr, "put: %s is a directory\n", localPath)
 		return
 	}
 	remoteArg := filepath.Base(localPath)
@@ -205,11 +256,30 @@ func (s *session) put(rest []string) {
 	}
 	remote := resolveRemote(s.cwd, remoteArg)
 	ctype := mime.TypeByExtension(filepath.Ext(localPath))
-	if err := s.d.Upload(s.ctx, s.g, remote, ctype, data); err != nil {
-		fmt.Fprintf(os.Stderr, "put: %v\n", err)
+
+	ctx, stop := signal.NotifyContext(s.ctx, os.Interrupt)
+	defer stop()
+
+	// Show progress for large uploads so a multi-chunk transfer doesn't look
+	// hung; small ones finish in a single request.
+	var r io.Reader = f
+	showProgress := info.Size() > progressThreshold
+	if showProgress {
+		r = &progressReader{r: f, total: info.Size(), label: path.Base(remote)}
+	}
+	err = s.d.Upload(ctx, s.g, remote, ctype, r, info.Size())
+	if showProgress {
+		fmt.Fprintln(os.Stderr)
+	}
+	if err != nil {
+		if ctx.Err() != nil {
+			fmt.Fprintln(os.Stderr, "put: interrupted")
+		} else {
+			fmt.Fprintf(os.Stderr, "put: %v\n", err)
+		}
 		return
 	}
-	fmt.Printf("put %s -> /%s (%d bytes)\n", localPath, remote, len(data))
+	fmt.Printf("put %s -> /%s (%d bytes)\n", localPath, remote, info.Size())
 }
 
 func (s *session) mkdir(rest []string) {
@@ -326,6 +396,50 @@ func confirm(line *liner.State, prompt string) bool {
 	return ans == "y" || ans == "yes"
 }
 
+// progressThreshold is the file size above which get/put print a progress line.
+// Below it, transfers are quick enough that progress would just flicker.
+const progressThreshold = 50 * 1024 * 1024 // 50 MiB
+
+// progressReader wraps a reader and prints a single rewritten line of upload
+// progress to stderr as bytes flow through it. The label is the remote file name.
+type progressReader struct {
+	r     io.Reader
+	total int64
+	read  int64
+	label string
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.read += int64(n)
+	pct := 0.0
+	if p.total > 0 {
+		pct = float64(p.read) / float64(p.total) * 100
+	}
+	fmt.Fprintf(os.Stderr, "\ruploading %s: %d/%d bytes (%.0f%%)", p.label, p.read, p.total, pct)
+	return n, err
+}
+
+// progressWriter is the download counterpart of progressReader: it prints a
+// rewritten progress line as bytes are written to the local file.
+type progressWriter struct {
+	w     io.Writer
+	total int64
+	wrote int64
+	label string
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	p.wrote += int64(n)
+	pct := 0.0
+	if p.total > 0 {
+		pct = float64(p.wrote) / float64(p.total) * 100
+	}
+	fmt.Fprintf(os.Stderr, "\rdownloading %s: %d/%d bytes (%.0f%%)", p.label, p.wrote, p.total, pct)
+	return n, err
+}
+
 func printItems(w io.Writer, items []drive.Item) {
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].IsFolder != items[j].IsFolder {
@@ -356,7 +470,7 @@ func printHelp() {
   cd [path]            change remote folder (bare: print current)
   pwd                  print remote folder
   get <remote> [local] download a file
-  put <local> [remote] upload a file (<=250MB)
+  put <local> [remote] upload a file (chunked above 250MB)
   mkdir <path>         create a remote folder
   rm <path>            delete a file (folders prompt to confirm)
   mv <src> <dst>       move or rename a remote item

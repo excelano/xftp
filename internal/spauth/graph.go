@@ -113,7 +113,7 @@ func (g *GraphClient) Delete(ctx context.Context, path string) error {
 
 // PutRaw issues an authenticated PUT with an arbitrary byte body and content
 // type. Used for simple (<=250MB) file uploads to an item's /content endpoint.
-// Larger files need an upload session; see drive.Upload's TODO.
+// Larger files go through an upload session (UploadChunk).
 func (g *GraphClient) PutRaw(ctx context.Context, path, contentType string, data []byte) ([]byte, error) {
 	return g.doWithRetry(ctx, func() (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPut, graphBaseURL+path, bytes.NewReader(data))
@@ -123,6 +123,68 @@ func (g *GraphClient) PutRaw(ctx context.Context, path, contentType string, data
 		req.Header.Set("Content-Type", contentType)
 		return req, nil
 	})
+}
+
+// UploadChunk PUTs one byte range of a file to a pre-authenticated upload-session
+// URL (returned by a createUploadSession POST). That URL is already signed, so no
+// Authorization header is sent. start is the zero-based offset of this chunk and
+// total the full file size; Graph reads the Content-Range header to assemble the
+// file and to recognize the final chunk. The returned status is 202 while more
+// chunks are expected and 200/201 once the upload is complete (body is then the
+// finished driveItem). Transient 429/5xx responses are retried with backoff;
+// re-sending the same range is how an interrupted session resumes.
+func (g *GraphClient) UploadChunk(ctx context.Context, uploadURL string, chunk []byte, start, total int64) (int, []byte, error) {
+	const maxRetries = 3
+	end := start + int64(len(chunk)) - 1
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadURL, bytes.NewReader(chunk))
+		if err != nil {
+			return 0, nil, err
+		}
+		req.ContentLength = int64(len(chunk))
+		req.Header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, total))
+
+		resp, err := g.httpClient.Do(req)
+		if err != nil {
+			return 0, nil, fmt.Errorf("uploading chunk: %w", err)
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return 0, nil, fmt.Errorf("reading chunk response: %w", readErr)
+		}
+
+		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500) && attempt < maxRetries {
+			wait := retryAfter(resp.Header.Get("Retry-After"))
+			select {
+			case <-ctx.Done():
+				return 0, nil, ctx.Err()
+			case <-time.After(wait):
+			}
+			continue
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return resp.StatusCode, body, fmt.Errorf("chunk upload returned %d: %s", resp.StatusCode, string(body))
+		}
+		return resp.StatusCode, body, nil
+	}
+	return 0, nil, fmt.Errorf("chunk upload exhausted retries")
+}
+
+// CancelUploadSession best-effort deletes an in-progress upload session so an
+// aborted large upload doesn't leave a dangling session on the server. The URL
+// is pre-authenticated; errors are ignored since this is cleanup.
+func (g *GraphClient) CancelUploadSession(ctx context.Context, uploadURL string) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, uploadURL, nil)
+	if err != nil {
+		return
+	}
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
 }
 
 func (g *GraphClient) bodyReq(ctx context.Context, method, path string, body interface{}) ([]byte, error) {

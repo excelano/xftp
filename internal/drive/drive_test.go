@@ -31,6 +31,10 @@ func TestParseSiteURL(t *testing.T) {
 		{"https://c.sharepoint.com/teams/Eng/Project%20Files", "c.sharepoint.com", "/teams/Eng", "Project Files"},
 		{"https://c.sharepoint.com", "c.sharepoint.com", "", ""},
 		{"https://c.sharepoint.com/Shared%20Documents", "c.sharepoint.com", "", "Shared Documents"},
+		// "Copy link" sharing URLs: /:type:/action/ prefix is stripped.
+		{"https://c.sharepoint.com/:f:/r/sites/Marketing/Shared%20Documents/General/Phase%202", "c.sharepoint.com", "/sites/Marketing", "Shared Documents/General/Phase 2"},
+		{"https://c.sharepoint.com/:w:/r/sites/Marketing", "c.sharepoint.com", "/sites/Marketing", ""},
+		{"https://c.sharepoint.com/:x:/g/teams/Eng/Project%20Files", "c.sharepoint.com", "/teams/Eng", "Project Files"},
 	}
 	for _, c := range cases {
 		host, sitePath, rest, err := parseSiteURL(c.in)
@@ -62,12 +66,33 @@ func TestMatchDriveByURL(t *testing.T) {
 		{"longest match wins", "https://c.sharepoint.com/sites/Marketing/Project%20Files/Sub", "d2", "Sub", true},
 		{"no match below site", "https://c.sharepoint.com/sites/Marketing", "", "", false},
 		{"wrong host", "https://other.sharepoint.com/sites/Marketing/Shared%20Documents/Reports", "", "", false},
+		{"share link prefix", "https://c.sharepoint.com/:f:/r/sites/Marketing/Shared%20Documents/Reports/Q1", "d1", "Reports/Q1", true},
 	}
 	for _, c := range cases {
 		m, start, ok := matchDriveByURL(c.in, drives)
 		if ok != c.wantOK || m.ID != c.wantID || start != c.wantStart {
 			t.Errorf("%s: matchDriveByURL(%q) = (%q, %q, %v), want (%q, %q, %v)",
 				c.name, c.in, m.ID, start, ok, c.wantID, c.wantStart, c.wantOK)
+		}
+	}
+}
+
+func TestShareLinkPrefixLen(t *testing.T) {
+	cases := []struct {
+		name string
+		segs []string
+		want int
+	}{
+		{"plain site", []string{"sites", "Marketing"}, 0},
+		{"folder share", []string{":f:", "r", "sites", "Marketing"}, 2},
+		{"word doc guest share", []string{":w:", "g", "sites", "Marketing"}, 2},
+		{"type token only", []string{":f:", "sites"}, 1},
+		{"empty", nil, 0},
+		{"colon-led but unterminated", []string{":notashare", "x"}, 0},
+	}
+	for _, c := range cases {
+		if got := shareLinkPrefixLen(c.segs); got != c.want {
+			t.Errorf("%s: shareLinkPrefixLen(%v) = %d, want %d", c.name, c.segs, got, c.want)
 		}
 	}
 }

@@ -63,6 +63,7 @@ func parseSiteURL(rawURL string) (hostname, sitePath, restPath string, err error
 	hostname = u.Host
 
 	parts := urlPathSegments(u.Path)
+	parts = parts[shareLinkPrefixLen(parts):]
 	if len(parts) == 0 {
 		return hostname, "", "", nil
 	}
@@ -233,6 +234,7 @@ func matchDriveByURL(rawURL string, drives []driveMeta) (match driveMeta, startP
 		effPath = id
 	}
 	inSegs := urlPathSegments(effPath)
+	inSegs = inSegs[shareLinkPrefixLen(inSegs):]
 	if len(inSegs) == 0 {
 		return driveMeta{}, "", false
 	}
@@ -258,6 +260,27 @@ func matchDriveByURL(rawURL string, drives []driveMeta) (match driveMeta, startP
 		return driveMeta{}, "", false
 	}
 	return match, strings.Join(stripViewSuffix(remainder), "/"), true
+}
+
+// shareLinkPrefixLen reports how many leading segments form a SharePoint
+// "Copy link" sharing-URL prefix that sits in front of the real server-relative
+// path — e.g. /:f:/r/sites/... or /:w:/g/.... The first segment is a :type:
+// token (a short code wrapped in colons: :f: folder, :w:/:x:/:p: Office docs,
+// etc.); the second is a single-letter routing action (r = redirect, g = guest,
+// s, u, ...). Returns 0 when segs doesn't start with such a prefix, so plain
+// /sites/... URLs are untouched.
+func shareLinkPrefixLen(segs []string) int {
+	if len(segs) == 0 {
+		return 0
+	}
+	s0 := segs[0]
+	if len(s0) < 2 || !strings.HasPrefix(s0, ":") || !strings.HasSuffix(s0, ":") {
+		return 0
+	}
+	if len(segs) >= 2 && len(segs[1]) == 1 {
+		return 2
+	}
+	return 1
 }
 
 // urlPathSegments splits an already-decoded URL path into its non-empty

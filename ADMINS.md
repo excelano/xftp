@@ -2,7 +2,7 @@
 
 This page is for the person who approves applications in a Microsoft 365 tenant. If a colleague has asked you to allow xftp, everything you need to make that decision is below.
 
-xftp is a command-line tool that gives a SharePoint document library the feel of an FTP session. It runs locally on the user's own machine, signs in as that user through Microsoft's device-code flow, and talks to SharePoint over the Microsoft Graph API. There is no server, no daemon, no background process, and no service account. It can do nothing the signed-in user could not already do in SharePoint Online through a browser. The same tool ships with a one-shot, scp-style copy companion called xcp, which uses the identical application registration and the identical delegated permission; everything on this page applies equally to both.
+xftp is a command-line tool that gives a SharePoint document library the feel of an FTP session. It runs locally on the user's own machine, signs in as that user through Microsoft's device-code flow, and talks to SharePoint over the Microsoft Graph API. There is no server, no daemon, no background process, and no service account. It can do nothing the signed-in user could not already do in SharePoint Online through a browser. The same repository ships three companions — xcp (a one-shot, scp-style copy) and the read-only xfind and xtree (recursive listing) — which use the identical application registration and the identical delegated permission; everything on this page applies equally to all four.
 
 ## The application you would be approving
 
@@ -18,7 +18,7 @@ xftp authenticates through a multi-tenant Microsoft Entra application published 
 | Requested permission | Microsoft Graph `Sites.ReadWrite.All` |
 | Permission type | Delegated |
 
-Excelano LLC is a Microsoft-verified publisher, so the consent screen and the enterprise application record both show the publisher name with a verified badge rather than the unverified-publisher warning. The same registration backs both tools in this repository, xftp and xcp, as well as the sibling tool [xql](https://github.com/excelano/xql), so a single consent decision covers all three. Granting or blocking one grants or blocks them all.
+Excelano LLC is a Microsoft-verified publisher, so the consent screen and the enterprise application record both show the publisher name with a verified badge rather than the unverified-publisher warning. The same registration backs all four tools in this repository — xftp, xcp, xfind, and xtree — as well as the sibling tool [xql](https://github.com/excelano/xql), so a single consent decision covers them all. Granting or blocking one grants or blocks them all.
 
 ## What the delegated permission means
 
@@ -57,7 +57,7 @@ If you want xftp available to some people but not the whole tenant, open the ent
 
 ## Reviewing and revoking
 
-After consent the application appears permanently under Enterprise applications, where its sign-in logs show exactly who has used it and when. To revoke access for the whole tenant, delete the enterprise application (this removes the consent and the service principal), or set "Enabled for users to sign in" to No under Properties to block it without deleting the record. Either action takes effect for xftp, xcp, and xql alike. An individual user can revoke their own grant at any time at <https://myaccount.microsoft.com/applications>.
+After consent the application appears permanently under Enterprise applications, where its sign-in logs show exactly who has used it and when. To revoke access for the whole tenant, delete the enterprise application (this removes the consent and the service principal), or set "Enabled for users to sign in" to No under Properties to block it without deleting the record. Either action takes effect for xftp, xcp, xfind, xtree, and xql alike. An individual user can revoke their own grant at any time at <https://myaccount.microsoft.com/applications>.
 
 ## Reporting a concern
 

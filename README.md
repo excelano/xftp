@@ -6,6 +6,8 @@ It is a single static Go binary with no daemon and no mounted filesystem. Authen
 
 The repository also ships **xcp**, an scp-style companion for one-shot, non-interactive copies — a single command to move one file to or from a library without entering a session. It is the right tool for scripts and quick transfers; xftp is the right tool for browsing and working interactively. The two share the same engine and the same sign-in. See [One-shot copies with xcp](#one-shot-copies-with-xcp) below.
 
+Two more companions cover recursive listing. **xfind** is the `find` of the family: it walks a library and prints matching paths one per line, filtered by name, type, or depth, ready to pipe. **xtree** is the `tree` of the family: it prints the same walk as an indented tree with a directory and file count. Both are read-only. See [Recursive listing with xfind and xtree](#recursive-listing-with-xfind-and-xtree) below.
+
 ## Install
 
 Prebuilt binary (Linux and macOS, x86_64 and arm64):
@@ -22,13 +24,13 @@ curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sud
 
 Pin a version with `XFTP_VERSION=v1.0.0`, or install elsewhere with `XFTP_INSTALL_DIR=$HOME/bin`.
 
-The installer drops both `xftp` and `xcp` into the same directory.
+The installer drops `xftp`, `xcp`, `xfind`, and `xtree` into the same directory.
 
 On Debian or Ubuntu, install from the [Excelano apt repository](https://excelano.com/apt/) instead, so `apt upgrade` keeps them current:
 
 ```sh
 curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
-sudo apt install xftp xcp
+sudo apt install xftp xcp xfind xtree
 ```
 
 From source (Go 1.24 or later):
@@ -36,9 +38,11 @@ From source (Go 1.24 or later):
 ```
 go install github.com/excelano/xftp/cmd/xftp@latest
 go install github.com/excelano/xftp/cmd/xcp@latest
+go install github.com/excelano/xftp/cmd/xfind@latest
+go install github.com/excelano/xftp/cmd/xtree@latest
 ```
 
-To uninstall, run `curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh | sh`, which removes both binaries.
+To uninstall, run `curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh | sh`, which removes all four binaries.
 
 ## Connecting
 
@@ -115,9 +119,32 @@ generate-report | xcp - "https://contoso.sharepoint.com/sites/Marketing/Shared D
 
 xcp authenticates exactly like xftp and through the same app registration, but it keeps its own token cache under `~/.config/xcp`, so the first run signs in once of its own. Recursive directory copies (`-r`) aren't supported yet; xcp moves one file per invocation.
 
+## Recursive listing with xfind and xtree
+
+Where `ls` shows one folder, `xfind` and `xtree` walk a whole library. Both take a single SharePoint URL — site, library, or folder — and recurse from there, the same URL shapes xftp and xcp accept, copy links included (wrap those in single quotes).
+
+`xfind` prints one path per line, relative to the folder the URL points at, the way `find` prints paths relative to its starting directory. With no flags it lists everything; `--name` (or case-insensitive `--iname`) filters by a glob on the file or folder name, `--type f` or `--type d` restricts to files or folders, and `--maxdepth` limits how deep it descends.
+
+```
+xfind https://contoso.sharepoint.com/sites/Marketing
+xfind --type f --name '*.xlsx' "https://contoso.sharepoint.com/sites/Marketing/Shared Documents/Reports"
+xfind --type d --maxdepth 2 https://contoso.sharepoint.com/sites/Marketing
+```
+
+Because the output is plain paths on stdout, it pipes into the usual tools — `xfind --name '*.pdf' <url> | wc -l` counts the PDFs in a library.
+
+`xtree` prints the same walk as an indented tree and finishes with a `N directories, M files` summary. `-L` caps the depth shown and `-d` lists folders only.
+
+```
+xtree https://contoso.sharepoint.com/sites/Marketing
+xtree -L 2 -d "https://contoso.sharepoint.com/sites/Marketing/Shared Documents"
+```
+
+Both are read-only — they only ever list — and each keeps its own token cache (`~/.config/xfind`, `~/.config/xtree`).
+
 ## Authentication and tenants
 
-xftp authenticates through a multi-tenant Azure app registration ("Excelano SharePoint tools"), shared with `xcp` and with the sibling tool [xql](https://github.com/excelano/xql), so consenting once covers all three. Pointing xftp at another organization's site uses that same registration — nobody sets up their own. The first connection to a new tenant raises a one-time consent prompt; depending on that tenant's policy, either the user or an administrator clears it, after which everyone in the tenant is covered. The single scope requested is `Sites.ReadWrite.All`. If your organization restricts user consent, [ADMINS.md](ADMINS.md) has everything your IT department needs to review and approve the application.
+xftp authenticates through a multi-tenant Azure app registration ("Excelano SharePoint tools"), shared with `xcp`, `xfind`, `xtree`, and with the sibling tool [xql](https://github.com/excelano/xql), so consenting once covers them all. Pointing xftp at another organization's site uses that same registration — nobody sets up their own. The first connection to a new tenant raises a one-time consent prompt; depending on that tenant's policy, either the user or an administrator clears it, after which everyone in the tenant is covered. The single scope requested is `Sites.ReadWrite.All`. If your organization restricts user consent, [ADMINS.md](ADMINS.md) has everything your IT department needs to review and approve the application.
 
 To use your own app registration instead, change `defaultClientID` in `internal/spauth/auth.go` and rebuild.
 
@@ -126,6 +153,8 @@ To use your own app registration instead, change `defaultClientID` in `internal/
 ```
 go build -o xftp ./cmd/xftp
 go build -o xcp ./cmd/xcp
+go build -o xfind ./cmd/xfind
+go build -o xtree ./cmd/xtree
 ```
 
 ## Large files

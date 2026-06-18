@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -374,6 +376,51 @@ func (d *Drive) List(ctx context.Context, g *spauth.GraphClient, path string) ([
 		items = append(items, j.toItem())
 	}
 	return items, nil
+}
+
+// SortChildren orders a folder listing in place: case-insensitively by name,
+// with the exact name as a stable tiebreaker. Both xfind and xtree walk with
+// this ordering so their output is deterministic and matches between the two.
+func SortChildren(items []Item) {
+	sort.Slice(items, func(i, j int) bool {
+		li, lj := strings.ToLower(items[i].Name), strings.ToLower(items[j].Name)
+		if li != lj {
+			return li < lj
+		}
+		return items[i].Name < items[j].Name
+	})
+}
+
+// Walk recursively visits every item beneath the library-relative root folder,
+// depth first, in SortChildren order. For each item it calls visit with the
+// item, its library-relative path, its depth below root (root's direct children
+// are depth 1), and whether it is the last child of its parent (so a tree view
+// can draw └── vs ├──). When visit returns false for a folder, the walk does not
+// descend into it — that's how depth and type filters prune the traversal. A
+// List failure on any folder stops the walk and is returned.
+func (d *Drive) Walk(ctx context.Context, g *spauth.GraphClient, root string,
+	visit func(it Item, itemPath string, depth int, isLast bool) (descend bool)) error {
+	return d.walkDir(ctx, g, root, 1, visit)
+}
+
+func (d *Drive) walkDir(ctx context.Context, g *spauth.GraphClient, dir string, depth int,
+	visit func(it Item, itemPath string, depth int, isLast bool) bool) error {
+	items, err := d.List(ctx, g, dir)
+	if err != nil {
+		return fmt.Errorf("listing /%s: %w", strings.Trim(dir, "/"), err)
+	}
+	SortChildren(items)
+	for i, it := range items {
+		p := path.Join(dir, it.Name)
+		isLast := i == len(items)-1
+		descend := visit(it, p, depth, isLast)
+		if it.IsFolder && descend {
+			if err := d.walkDir(ctx, g, p, depth+1, visit); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // simpleUploadMax is Graph's ceiling for a single PUT to /content. Files at or

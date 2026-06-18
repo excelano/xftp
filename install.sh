@@ -1,7 +1,7 @@
 #!/bin/sh
-# xftp installer — fetches the latest release binaries (xftp and its scp-style
-# companion xcp) for the host platform and drops them into /usr/local/bin (or
-# ~/.local/bin if /usr/local/bin is not writable). POSIX sh, no bash extensions.
+# xftp installer — fetches the latest release binaries (xftp and its companions
+# xcp, xfind, and xtree) for the host platform and drops them into /usr/local/bin
+# (or ~/.local/bin if /usr/local/bin is not writable). POSIX sh, no bash extensions.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sh
@@ -13,8 +13,8 @@
 set -eu
 
 REPO="excelano/xftp"
-# Binaries shipped from this repo, installed together so the two stay in lockstep.
-BINARIES="xftp xcp"
+# Binaries shipped from this repo, installed together so the set stays in lockstep.
+BINARIES="xftp xcp xfind xtree"
 
 say() { printf '%s\n' "$*" >&2; }
 err() { say "error: $*"; exit 1; }
@@ -181,8 +181,9 @@ post_install_message() {
 	esac
 	say ""
 	say "Try it:"
-	say "    xftp --help"
-	say "    xcp --help"
+	for BIN in $BINARIES; do
+		say "    $BIN --help"
+	done
 }
 
 detect_platform

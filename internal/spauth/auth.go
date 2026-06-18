@@ -1,11 +1,11 @@
 // Package spauth is the SharePoint authentication layer for this repo's tools
-// (xftp and xcp): device-code OAuth via MSAL plus a thin authenticated
-// Microsoft Graph HTTP client.
+// (xftp, xcp, xfind, and xtree): device-code OAuth via MSAL plus a thin
+// authenticated Microsoft Graph HTTP client.
 //
 // This is a copy-and-diff of xql's internal/sp auth + graph plumbing, kept
 // deliberately separate rather than extracted into a shared module: this repo
 // and xql are the only two codebases carrying this MSAL/Sites-scoped flow today
-// (xftp and xcp share this one copy), and the right shared interface isn't yet
+// (all four binaries here share this one copy), and the right shared interface isn't yet
 // known from a sample of two. Extract when a third codebase needs it or when an
 // auth fix has to be applied in both places. (blick-cli is NOT a consumer of
 // this flow — it hand-rolls x/oauth2 against per-tenant mailbox scopes, a
@@ -30,8 +30,9 @@ import (
 
 // Azure app registration "Excelano SharePoint tools"
 // (client 13be0775-ed76-4407-bb2c-b7a07a189bf6), multi-tenant, in Excelano's
-// tenant. Shared by xql, xftp, and xcp so consent state carries across the
-// tools. To use your own registration, change this constant and rebuild.
+// tenant. Shared by xql and this repo's tools (xftp, xcp, xfind, xtree) so
+// consent state carries across them. To use your own registration, change this
+// constant and rebuild.
 const (
 	defaultClientID  = "13be0775-ed76-4407-bb2c-b7a07a189bf6"
 	defaultAuthority = "https://login.microsoftonline.com/common"

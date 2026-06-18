@@ -4,7 +4,7 @@
 # (or ~/.local/bin if /usr/local/bin is not writable). POSIX sh, no bash extensions.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/install.sh | sh
 #
 # Environment variables:
 #   XFTP_INSTALL_DIR   Override install directory (e.g. /opt/bin or $HOME/bin)
@@ -12,7 +12,7 @@
 
 set -eu
 
-REPO="excelano/xftp"
+REPO="excelano/xfiles"
 # Binaries shipped from this repo, installed together so the set stays in lockstep.
 BINARIES="xftp xcp xfind xtree"
 
@@ -106,7 +106,7 @@ pick_install_dir() {
 		say "         New copy will land at $INSTALL_DIR/xftp"
 		say "         You will have two copies; PATH order decides which runs"
 		say "         To remove the other one: xftp uninstaller at"
-		say "         https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh"
+		say "         https://raw.githubusercontent.com/excelano/xfiles/main/uninstall.sh"
 	fi
 }
 

@@ -13,13 +13,13 @@ Two more companions cover recursive listing. **xfind** is the `find` of the fami
 Prebuilt binary (Linux and macOS, x86_64 and arm64):
 
 ```
-curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/install.sh | sh
 ```
 
 If the installer needs to write to a root-owned directory like `/usr/local/bin`, wrap `sh`, not `curl`:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/install.sh | sudo sh
 ```
 
 Pin a version with `XFTP_VERSION=v1.0.0`, or install elsewhere with `XFTP_INSTALL_DIR=$HOME/bin`.
@@ -36,13 +36,13 @@ sudo apt install xftp xcp xfind xtree
 From source (Go 1.24 or later):
 
 ```
-go install github.com/excelano/xftp/cmd/xftp@latest
-go install github.com/excelano/xftp/cmd/xcp@latest
-go install github.com/excelano/xftp/cmd/xfind@latest
-go install github.com/excelano/xftp/cmd/xtree@latest
+go install github.com/excelano/xfiles/cmd/xftp@latest
+go install github.com/excelano/xfiles/cmd/xcp@latest
+go install github.com/excelano/xfiles/cmd/xfind@latest
+go install github.com/excelano/xfiles/cmd/xtree@latest
 ```
 
-To uninstall, run `curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh | sh`, which removes all four binaries.
+To uninstall, run `curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/uninstall.sh | sh`, which removes all four binaries.
 
 ## Connecting
 

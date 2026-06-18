@@ -9,9 +9,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/excelano/xftp/internal/drive"
-	"github.com/excelano/xftp/internal/spauth"
-	"github.com/excelano/xftp/internal/xfer"
+	"github.com/excelano/xfiles/internal/drive"
+	"github.com/excelano/xfiles/internal/spauth"
+	"github.com/excelano/xfiles/internal/xfer"
 )
 
 // runDownload copies a remote file (named by url) to the local dst. dst may be a

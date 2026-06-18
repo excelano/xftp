@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/excelano/xftp/internal/drive"
-	"github.com/excelano/xftp/internal/spauth"
+	"github.com/excelano/xfiles/internal/drive"
+	"github.com/excelano/xfiles/internal/spauth"
 )
 
 func configDir() string {

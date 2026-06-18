@@ -1,4 +1,4 @@
-module github.com/excelano/xftp
+module github.com/excelano/xfiles
 
 go 1.24
 

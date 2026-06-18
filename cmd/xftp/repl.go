@@ -12,9 +12,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/excelano/xftp/internal/drive"
-	"github.com/excelano/xftp/internal/spauth"
-	"github.com/excelano/xftp/internal/xfer"
+	"github.com/excelano/xfiles/internal/drive"
+	"github.com/excelano/xfiles/internal/spauth"
+	"github.com/excelano/xfiles/internal/xfer"
 	"github.com/peterh/liner"
 )
 

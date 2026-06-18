@@ -137,7 +137,7 @@ nfpms:
       Connect to a site and move files with ls/cd/get/put/mkdir/rm/mv
       over Microsoft Graph. Device-code auth; large files stream through
       resumable upload sessions.
-    homepage: https://github.com/excelano/xftp
+    homepage: https://github.com/excelano/xfiles
     license: MIT
     formats:
       - deb
@@ -160,7 +160,7 @@ nfpms:
       Copy a file to or from a library in a single command over Microsoft
       Graph; direction is set by which argument is the URL. Device-code
       auth; large files stream through resumable upload sessions.
-    homepage: https://github.com/excelano/xftp
+    homepage: https://github.com/excelano/xfiles
     license: MIT
     formats:
       - deb
@@ -182,7 +182,7 @@ nfpms:
       xfind — the find(1) of the xftp family for SharePoint libraries.
       Walk a document library recursively and print matching paths, filtered
       by name, type, or depth, over Microsoft Graph. Device-code auth.
-    homepage: https://github.com/excelano/xftp
+    homepage: https://github.com/excelano/xfiles
     license: MIT
     formats:
       - deb
@@ -204,7 +204,7 @@ nfpms:
       xtree — the tree(1) of the xftp family for SharePoint libraries.
       Print a document library as an indented tree with a directory/file
       summary, over Microsoft Graph. Device-code auth.
-    homepage: https://github.com/excelano/xftp
+    homepage: https://github.com/excelano/xfiles
     license: MIT
     formats:
       - deb

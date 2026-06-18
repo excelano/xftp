@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/excelano/xftp/internal/drive"
+	"github.com/excelano/xfiles/internal/drive"
 )
 
 func TestCriteriaMatch(t *testing.T) {

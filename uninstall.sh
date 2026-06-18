@@ -4,7 +4,7 @@
 # (REPL history, cached tokens). POSIX sh, no bash extensions.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/excelano/xftp/main/uninstall.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/uninstall.sh | sh
 #
 # Environment variables:
 #   XFTP_UNINSTALL_YES=1  Skip the binary-removal confirmation (assume yes).

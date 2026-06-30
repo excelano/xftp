@@ -14,24 +14,40 @@ Each is a single static Go binary with no daemon and no mounted filesystem. Auth
 
 ## Install
 
-On Debian or Ubuntu, add the [Excelano apt repository](https://excelano.com/apt/) once, then install the whole suite as a single metapackage so `apt upgrade` keeps everything current:
+### Debian and Ubuntu
+
+Add the [Excelano apt repository](https://excelano.com/apt/) once (one-time setup):
 
 ```sh
 curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
+```
+
+Then install the whole suite as a single metapackage, so `apt upgrade` keeps everything current:
+
+```sh
 sudo apt install xfiles
 ```
 
 `xfiles` is a metapackage that pulls in all five tools. To install just one, name it instead — `sudo apt install xsync`, for example.
 
-With [Homebrew](https://brew.sh) on macOS or Linux, so `brew upgrade` keeps them current. There's no metapackage, so name the tools — all five, or just the ones you want:
+### Homebrew
+
+On macOS or Linux, tap and trust the repository once — Homebrew gates third-party taps behind explicit trust (one-time setup):
 
 ```sh
 brew tap excelano/tap
-brew trust excelano/tap   # one-time: Homebrew gates third-party taps behind explicit trust
+brew trust excelano/tap
+```
+
+There's no metapackage, so name the tools — all five, or just the ones you want. `brew upgrade` keeps them current:
+
+```sh
 brew install xftp xcp xsync xfind xtree
 ```
 
-On other platforms, the install script fetches prebuilt binaries (Linux and macOS, x86_64 and arm64) and drops all five into one directory:
+### Prebuilt binary (Linux and macOS, x86_64 and arm64)
+
+The install script fetches prebuilt binaries and drops all five into one directory:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/install.sh | sh
@@ -44,6 +60,8 @@ curl -fsSL https://raw.githubusercontent.com/excelano/xfiles/main/install.sh | s
 ```
 
 Pin a version with `XFILES_VERSION=v1.5.0`, or install elsewhere with `XFILES_INSTALL_DIR=$HOME/bin`. To uninstall, run the matching `uninstall.sh` the same way, which removes all five binaries.
+
+### Go
 
 From source (Go 1.24 or later):
 
